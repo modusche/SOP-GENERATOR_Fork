@@ -1,0 +1,5 @@
+Flask>=2.3.0
+python-docx>=0.8.11
+lxml>=4.9.0
+waitress>=2.1.0
+docxtpl>=0.16.0

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOP Generator - Preview</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f8f9fa; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2em; background: white; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.08); }
+        h1 { color: #343a40; border-bottom: 2px solid #007bff; padding-bottom: 0.5em; margin-top: 0; font-size: 1.4em; }
+        h2 { color: #495057; margin-top: 1.5em; font-size: 1.1em; border-bottom: 1px solid #dee2e6; padding-bottom: 0.3em; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; }
+        .form-group { display: flex; flex-direction: column; }
+        .full-width { grid-column: 1 / -1; }
+        label { margin-bottom: 0.3em; font-weight: 600; color: #495057; font-size: 0.9em; }
+        input[type="text"], textarea { font-size: 0.95rem; padding: 0.6em; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; }
+        input[type="text"]:focus, textarea:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.15rem rgba(0,123,255,.25); }
+        .auto-filled { background-color: #e8f5e9; }
+        .btn-row { display: flex; gap: 1em; margin-top: 2em; justify-content: center; }
+        .btn { padding: 0.8em 2em; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #545b62; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .dynamic-list .entry { display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.5em; margin-bottom: 0.5em; }
+        .add-btn { background-color: #28a745; color: white; border: none; border-radius: 6px; padding: 0.4em 1em; cursor: pointer; font-size: 0.85em; }
+        .remove-btn { background-color: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.4em 0.8em; cursor: pointer; font-size: 0.85em; }
+        .spinner { display: inline-block; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 0.5em; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SOP Generator - Review & Generate</h1>
+        <p style="color: #6c757d; margin-top: -0.5em; font-size: 0.9em;">Review the auto-populated metadata below, make any changes, then click Generate.</p>
+
+        <form id="sop-form">
+
+            <h2>Template</h2>
+            <div class="form-group" style="max-width: 320px;">
+                <label for="sop_template">Document template</label>
+                <select id="sop_template" name="sop_template" style="font-size: 0.95rem; padding: 0.6em; border: 1px solid #ced4da; border-radius: 6px; width: 100%;">
+                    {% for filename, label in (available_templates or [('final_master_template_2.docx', 'Default (Master)')]) %}
+                    <option value="{{ filename }}" {{ 'selected' if filename == 'final_master_template_2.docx' else '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <h2>SOP Metadata</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Process Name</label>
+                    <input type="text" name="process_name" value="{{ meta.get('process_name', '') }}" class="{{ 'auto-filled' if meta.get('process_name') else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Process Code</label>
+                    <input type="text" name="process_code" value="{{ meta.get('process_code', '') }}" class="{{ 'auto-filled' if meta.get('process_code') else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Issued By</label>
+                    <input type="text" name="issued_by" value="Business Excellence">
+                </div>
+                <div class="form-group">
+                    <label>Release Date</label>
+                    <input type="text" name="release_date" id="release_date" placeholder="dd MMM yyyy">
+                </div>
+                <div class="form-group">
+                    <label>Process Owner</label>
+                    <input type="text" name="process_owner" value="TBD">
+                </div>
+            </div>
+
+            <h2>Purpose & Scope</h2>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Purpose</label>
+                    <textarea name="purpose" rows="2" class="{{ 'auto-filled' if meta.get('purpose') else '' }}">{{ meta.get('purpose', '') }}</textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>Scope</label>
+                    <textarea name="scope" rows="2" class="{{ 'auto-filled' if meta.get('scope') else '' }}">{{ meta.get('scope', '') }}</textarea>
+                </div>
+            </div>
+
+            <h2>Abbreviations and Definitions</h2>
+            <div id="abbreviations-container" class="dynamic-list">
+                {% if meta.get('abbreviations_list') %}
+                    {% for abbrev in meta['abbreviations_list'] %}
+                    <div class="entry">
+                        <input type="text" name="abbrev_term[]" placeholder="Term" value="{{ abbrev.get('term', '') }}">
+                        <input type="text" name="abbrev_def[]" placeholder="Definition" value="{{ abbrev.get('definition', '') }}">
+                        <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="entry">
+                        <input type="text" name="abbrev_term[]" placeholder="Term">
+                        <input type="text" name="abbrev_def[]" placeholder="Definition">
+                        <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                    </div>
+                {% endif %}
+            </div>
+            <button type="button" class="add-btn" onclick="addEntry('abbreviations-container', 'abbrev_term[]', 'abbrev_def[]', 'Term', 'Definition')">+ Add</button>
+
+            <h2>Referenced Documents and Approvals</h2>
+            <div id="references-container" class="dynamic-list">
+                {% set refs = [] %}
+                {% if meta.get('lane_names') %}
+                    {% for lane in meta['lane_names'] %}
+                    <div class="entry">
+                        <input type="text" name="ref_id[]" placeholder="Document ID" value="N/A">
+                        <input type="text" name="ref_title[]" placeholder="Document Title" value="{{ lane }} Approval">
+                        <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+                {% if meta.get('process_name') or meta.get('process_code') %}
+                <div class="entry">
+                    <input type="text" name="ref_id[]" placeholder="Document ID" value="DGM- {{ meta.get('process_code', '') }}">
+                    <input type="text" name="ref_title[]" placeholder="Document Title" value="{{ meta.get('process_name', '') }} Process Diagram        Notations Meaning">
+                    <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                </div>
+                {% endif %}
+                {% if not meta.get('lane_names') and not meta.get('process_name') %}
+                <div class="entry">
+                    <input type="text" name="ref_id[]" placeholder="Document ID">
+                    <input type="text" name="ref_title[]" placeholder="Document Title">
+                    <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                </div>
+                {% endif %}
+            </div>
+            <button type="button" class="add-btn" onclick="addEntry('references-container', 'ref_id[]', 'ref_title[]', 'Document ID', 'Document Title')">+ Add</button>
+
+            <h2>General Policies</h2>
+            <div id="policies-container" class="dynamic-list">
+                {% if meta.get('general_policies_list') %}
+                    {% for policy in meta['general_policies_list'] %}
+                    <div class="entry">
+                        <input type="text" name="policy_ref[]" placeholder="Ref" value="{{ policy.get('ref', '') }}">
+                        <input type="text" name="policy_text[]" placeholder="Policy" value="{{ policy.get('policy', '') }}">
+                        <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="entry">
+                        <input type="text" name="policy_ref[]" placeholder="Ref">
+                        <input type="text" name="policy_text[]" placeholder="Policy">
+                        <button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>
+                    </div>
+                {% endif %}
+            </div>
+            <button type="button" class="add-btn" onclick="addEntry('policies-container', 'policy_ref[]', 'policy_text[]', 'Ref', 'Policy')">+ Add</button>
+
+            <div class="btn-row">
+                <button type="submit" class="btn btn-primary" id="generate-btn">Generate & Download .docx</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Auto-fill today's date
+        (function() {
+            var d = new Date();
+            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            document.getElementById('release_date').value =
+                String(d.getDate()).padStart(2,'0') + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+        })();
+
+        function addEntry(containerId, name1, name2, placeholder1, placeholder2) {
+            var container = document.getElementById(containerId);
+            var div = document.createElement('div');
+            div.className = 'entry';
+            div.innerHTML =
+                '<input type="text" name="' + name1 + '" placeholder="' + placeholder1 + '">' +
+                '<input type="text" name="' + name2 + '" placeholder="' + placeholder2 + '">' +
+                '<button type="button" class="remove-btn" onclick="removeEntry(this)">X</button>';
+            container.appendChild(div);
+        }
+
+        function removeEntry(btn) {
+            var container = btn.parentElement.parentElement;
+            if (container.children.length > 1) {
+                btn.parentElement.remove();
+            }
+        }
+
+        function closeModal() {
+            // Tell parent (Camunda Modeler) to close the modal
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage('sop-close-modal', '*');
+            } else {
+                window.close();
+            }
+        }
+
+        // Handle form submit - send data to parent window via postMessage
+        document.getElementById('sop-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            var btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Generating...';
+
+            // Serialize form data as URL-encoded string
+            var formData = new FormData(this);
+            var body = new URLSearchParams(formData).toString();
+
+            // Send to parent (Camunda Modeler) for download
+            window.parent.postMessage({
+                type: 'sop-generate',
+                session_id: '{{ session_id }}',
+                body: body
+            }, '*');
+        });
+
+        // Listen for response from parent
+        window.addEventListener('message', function(e) {
+            if (e.data === 'sop-download-complete' || e.data === 'sop-download-error') {
+                var btn = document.getElementById('generate-btn');
+                btn.disabled = false;
+                btn.innerHTML = 'Generate & Download .docx';
+
+                if (e.data === 'sop-download-error') {
+                    window.alert('Error generating document. Please try again.');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
